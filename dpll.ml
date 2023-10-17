@@ -50,9 +50,25 @@ let coloriage = [
 (* simplifie : int -> int list list -> int list list 
    applique la simplification de l'ensemble des clauses en mettant
    le littéral l à vrai *)
-let simplifie l clauses =
-  (* à compléter *)
-  []
+   let rec simplifie l clauses =
+
+    let rec simplifie_clause clause =
+      match clause with
+      | [] -> []  (* Clause vide, on la supprime *)
+      | hd :: tl when hd = l -> []  (* Supprimer la clause si l'apparaît *)
+      | hd :: tl when hd = -l -> simplifie_clause tl  (* Supprimer le littéral -l *)
+      | hd :: tl -> hd :: simplifie_clause tl
+    in
+  
+    match clauses with
+    | [] -> []
+    | clause :: rest ->
+      let clause_simplifiee = simplifie_clause clause in
+      if clause_simplifiee <> [] then (* Si la clause courant n'est pas vide après simplification *)
+        clause_simplifiee :: simplifie l rest
+      else
+        simplifie l rest
+  ;;
 
 (* solveur_split : int list list -> int list -> int list option
    exemple d'utilisation de `simplifie' *)
