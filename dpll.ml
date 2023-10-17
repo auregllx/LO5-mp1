@@ -55,19 +55,19 @@ let coloriage = [
     let rec simplifie_clause clause =
       match clause with
       | [] -> []  (* Clause vide, on la supprime *)
-      | hd :: tl when hd = l -> []  (* Supprimer la clause si l'apparaît *)
-      | hd :: tl when hd = -l -> simplifie_clause tl  (* Supprimer le littéral -l *)
-      | hd :: tl -> hd :: simplifie_clause tl
+      | litteral :: tl when litteral = l -> []  (* Supprimer la clause si l'apparaît *)
+      | litteral :: tl when litteral = -l -> simplifie_clause tl  (* Supprimer le littéral -l *)
+      | litteral :: tl -> litteral :: simplifie_clause tl
     in
   
     match clauses with
     | [] -> []
-    | clause :: rest ->
+    | clause :: tl ->
       let clause_simplifiee = simplifie_clause clause in
       if clause_simplifiee <> [] then (* Si la clause courant n'est pas vide après simplification *)
-        clause_simplifiee :: simplifie l rest
+        clause_simplifiee :: simplifie l tl
       else
-        simplifie l rest
+        simplifie l tl
   ;;
 
 (* solveur_split : int list list -> int list -> int list option
@@ -105,9 +105,16 @@ let pur clauses =
     - si `clauses' contient au moins une clause unitaire, retourne
       le littéral de cette clause unitaire ;
     - sinon, lève une exception `Not_found' *)
+
+exception Not_found
+
 let unitaire clauses =
   (* à compléter *)
-  0
+  let unit_clauses = List.filter (fun l -> List.length l = 1) clauses in 
+  match unit_clauses with 
+  |[] -> raise Not_found (* Aucune clause unitaire *)
+  |first_unit_clause :: tl -> List.hd first_unit_clause (* On renvoie le litéral associé à la première clause unitiaire trouvée *)
+;;
 
 (* solveur_dpll_rec : int list list -> int list -> int list option *)
 let rec solveur_dpll_rec clauses interpretation =
