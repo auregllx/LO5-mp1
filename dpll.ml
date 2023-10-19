@@ -97,9 +97,26 @@ let rec solveur_split clauses interpretation =
     - si `clauses' contient au moins un littéral pur, retourne
       ce littéral ;
     - sinon, lève une exception `Failure "pas de littéral pur"' *)
-let pur clauses =
+
+(* Fonction auxillaire qui verifie si un litteral est dans une clause *)
+let rec contains list l = 
+  match list with 
+  |[] -> false
+  |hd :: tl -> if List.men l hd then true else contains xs l
+;;
+
+
+let rec pur clauses =
   (* à compléter *)
-  0
+  match clauses with 
+  |[] -> raise (Failure "pas de littéral pur") (* Si il n'y a aucune clauses *)
+  |clause :: tl ->
+    match clause with 
+    |[] -> pur tl (* Si clause vide, on passe à la suivante *)
+    |l :: next -> 
+      if not(contains clauses (-l)) then l (* Si le négatif du littéral courant n'apparait pas on le renvoie *)
+      else pur (next :: tl) 
+;;
 
 (* unitaire : int list list -> int
     - si `clauses' contient au moins une clause unitaire, retourne
