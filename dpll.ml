@@ -56,7 +56,7 @@ let coloriage = [
       match clause with
       | [] -> []  (* Clause vide, on la supprime *)
       | litteral :: tl when litteral = l -> []  (* Supprimer la clause si l'apparaît *)
-      | litteral :: tl when litteral = -l -> simplifie_clause tl  (* Supprimer le littéral -l *)
+      | litteral :: tl when litteral = (-l) -> simplifie_clause tl  (* Supprimer le littéral -l *)
       | litteral :: tl -> litteral :: simplifie_clause tl
     in
   
@@ -93,7 +93,7 @@ let rec solveur_split clauses interpretation =
 (* solveur dpll récursif *)
 (* ----------------------------------------------------------- *)
 
-(* pur : int list list -> int
+(* pur : int list list -> int option
     - si `clauses' contient au moins un littéral pur, retourne
       ce littéral ;
     - sinon, lève une exception `Failure "pas de littéral pur"' *)
@@ -102,7 +102,7 @@ let rec solveur_split clauses interpretation =
 let rec contains list l = 
   match list with 
   |[] -> false
-  |hd :: tl -> if List.men l hd then true else contains xs l
+  |hd :: tl -> if List.mem l hd then true else contains tl l
 ;;
 
 
@@ -113,12 +113,12 @@ let rec pur clauses =
   |clause :: tl ->
     match clause with 
     |[] -> pur tl (* Si clause vide, on passe à la suivante *)
-    |l :: next -> 
-      if not(contains clauses (-l)) then l (* Si le négatif du littéral courant n'apparait pas on le renvoie *)
+    |litteral :: next -> 
+      if not(contains clauses (-litteral)) then litteral (* Si le négatif du littéral courant n'apparait pas on le renvoie *)
       else pur (next :: tl) 
 ;;
 
-(* unitaire : int list list -> int
+(* unitaire : int list list -> int option
     - si `clauses' contient au moins une clause unitaire, retourne
       le littéral de cette clause unitaire ;
     - sinon, lève une exception `Not_found' *)
@@ -130,14 +130,35 @@ let unitaire clauses =
   let unit_clauses = List.filter (fun l -> List.length l = 1) clauses in 
   match unit_clauses with 
   |[] -> raise Not_found (* Aucune clause unitaire *)
-  |first_unit_clause :: tl -> List.hd first_unit_clause (* On renvoie le litéral associé à la première clause unitiaire trouvée *)
+  |unit_clause :: tl -> List.hd unit_clause (* On renvoie le litéral associé à la première clause unitiaire trouvée *)
 ;;
 
 (* solveur_dpll_rec : int list list -> int list -> int list option *)
-let rec solveur_dpll_rec clauses interpretation =
-  (* à compléter *)
-  None
+(* let rec solveur_dpll_rec clauses interpretation =
+  None *)
 
+let rec solveur_dpll_rec clauses interpretation = 
+  let rec solveur_dpll clauses interpretation = 
+    if clauses = [] then Some interpretation
+    else if List.mem [] clauses then None
+    else 
+      try (* On cherche de clauses unitaires *)
+        let unit_litteral = unitaire clauses in
+        let simplified_clauses = simplifie unit_litteral clauses in 
+        solveur_dpll simplified_clauses (unit_litteral :: interpretation)
+      with
+        | Not_found -> (* On cherche désormais un littéral pur *)
+      
+      try
+        let pur_litteral = pur clauses in
+        let simplified_clauses = simplifie pur_litteral clauses in
+        solveur_dpll simplified_clauses (pur_litteral :: interpretation)
+      with 
+        |Not_found -> None
+    
+    in
+    solveur_dpll clauses interpretation
+  
 
 (* tests *)
 (* ----------------------------------------------------------- *)
