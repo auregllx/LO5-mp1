@@ -47,12 +47,29 @@ let coloriage = [
 
 (* ----------------------------------------------------------- *)
 
-(* simplifie : int -> int list list -> int list list 
+exception Not_Found
+exception Not_Simplified
+
+(* simplifie : int -> int list list -> int list list option
    applique la simplification de l'ensemble des clauses en mettant
    le littéral l à vrai *)
-let simplifie l clauses =
-  (* à compléter *)
-  []
+
+   exception NotSimplified
+
+   let rec simplifie l clauses =
+     if List.mem [-l] clauses then
+       raise NotSimplified
+     else
+       let is_literal_present clause = mem l clause in
+       let is_neg_literal_present clause = mem (-l) clause in
+       let should_remove_literal literal = literal = -l in
+       let remove_literal_from_clause clause = filter (fun literal -> not (should_remove_literal literal)) clause in
+       let simplified_clauses = map (fun clause -> if is_neg_literal_present clause then remove_literal_from_clause clause else clause) clauses in
+       filter (fun clause -> not (is_literal_present clause)) simplified_clauses
+   ;;
+   
+   
+  
 
 (* solveur_split : int list list -> int list -> int list option
    exemple d'utilisation de `simplifie' *)
@@ -77,27 +94,91 @@ let rec solveur_split clauses interpretation =
 (* solveur dpll récursif *)
 (* ----------------------------------------------------------- *)
 
-(* pur : int list list -> int
+
+
+
+
+(* pur : int list list -> int option
     - si `clauses' contient au moins un littéral pur, retourne
       ce littéral ;
-    - sinon, lève une exception `Failure "pas de littéral pur"' *)
-let pur clauses =
-  (* à compléter *)
-  0
+    - sinon, lève une exception 'Not_Found' *)
 
-(* unitaire : int list list -> int
+(* Fonction auxillaire qui verifie si un litteral est dans une clause *)
+let rec contains list l = 
+  match list with 
+  |[] -> false
+  |hd :: tl -> if mem l hd then true else contains tl l
+;;
+
+let rec pur clauses =
+  (* à compléter *)
+  match clauses with 
+  |[] -> raise Not_Found
+  |clause :: tl ->
+    match clause with 
+    |[] -> pur tl (* Si clause vide, on passe à la suivante *)
+    |litteral :: next -> 
+      if not(contains tl (-litteral)) && not(List.mem (-litteral) clause) then litteral (* Si la négation du littéral courant n'apparait pas on le renvoie *)
+      else pur (next :: tl)
+;;
+
+
+
+(* unitaire : int list list -> int option
     - si `clauses' contient au moins une clause unitaire, retourne
       le littéral de cette clause unitaire ;
     - sinon, lève une exception `Not_found' *)
-let unitaire clauses =
+
+(* let unitaire clauses =
   (* à compléter *)
-  0
+  let unit_clauses = List.filter (fun l -> List.length l = 1) clauses in 
+  match unit_clauses with 
+  |[] -> raise Not_found (* Aucune clause unitaire *)
+  |unit_clause :: tl -> List.hd unit_clause (* On renvoie le litéral associé à la première clause unitiaire trouvée *)
+;; *)
+
+let rec unitaire clauses = 
+  match clauses with 
+  |[] -> raise Not_Found
+  |clause :: tl 
+    -> match clause with 
+    |[litt] -> litt 
+    |_ -> unitaire tl
+;;
 
 (* solveur_dpll_rec : int list list -> int list -> int list option *)
-let rec solveur_dpll_rec clauses interpretation =
-  (* à compléter *)
-  None
 
+  let rec solveur_dpll_rec clauses interpretation =
+    match clauses with
+    | [] -> Some interpretation  (* Toutes les clauses sont satisfaites, renvoyer l'interprétation *)
+    | clause :: tl ->
+      if List.mem [] clauses then
+        None  (* Une clause est vide, la formule est insatisfiable *)
+      else
+        try
+          let unit_literal = unitaire clauses in
+          let simplified_clauses = simplifie unit_literal clauses in
+          let new_interpretation = unit_literal :: interpretation in
+          solveur_dpll_rec simplified_clauses new_interpretation
+        with
+        | Not_found ->
+          try
+            let pure_literal = pur clauses in
+            let simplified_clauses = simplifie pure_literal clauses in
+            let new_interpretation = pure_literal :: interpretation in
+            solveur_dpll_rec simplified_clauses new_interpretation
+          with
+          | Not_found ->
+            let branche = solveur_split clauses interpretation in
+            match branche with
+            | None -> None  (* Aucune branche n'a abouti, la formule est insatisfiable *)
+            | Some new_interpretation ->
+              let l = hd new_interpretation in
+              let simplified_clauses = simplifie l clauses in
+              solveur_dpll_rec simplified_clauses (l :: interpretation)
+  ;;
+  
+  
 
 (* tests *)
 (* ----------------------------------------------------------- *)
