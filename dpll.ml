@@ -47,28 +47,40 @@ let coloriage = [
 
 (* ----------------------------------------------------------- *)
 
-(* simplifie : int -> int list list -> int list list 
-   applique la simplification de l'ensemble des clauses en mettant
-   le littéral l à vrai *)
-   let rec simplifie l clauses =
+exception Not_Found
+exception Not_Simplified
 
-    let rec simplifie_clause clause =
-      match clause with
-      | [] -> []  (* Clause vide, on la supprime *)
-      | litteral :: tl when litteral = l -> []  (* Supprimer la clause si l'apparaît *)
-      | litteral :: tl when litteral = (-l) -> simplifie_clause tl  (* Supprimer le littéral -l *)
-      | litteral :: tl -> litteral :: simplifie_clause tl
-    in
+(*
+   simplifie : int -> int list list -> int list list option
+   Simplifie les clauses en éliminant les littéraux inutiles.
+   Retourne :
+   - Some simplfied_clauses : Les clauses simplifiées après simplification par l.
+   - None : Si la simplification échoue, c'est-à-dire si une clause contient -l.
+*)
+
+   exception NotSimplified
+
+   let rec simplifie l clauses =
+    (* Si une clause unitaire contenant -l alors toute la cnf est fausse *)
+    if List.mem [-l] clauses then 
+      (* L'exception Not_Simplified est levée *) 
+      raise NotSimplified 
+    else
+      let is_literal_present clause = mem l clause in
+      let is_neg_literal_present clause = mem (-l) clause in
+      (* Vérifie si un littéral doit être retiré d'une clause *)
+      let should_remove_literal literal = literal = -l in
+      (* Retire le littéral -l de la clause *)
+      let remove_literal_from_clause clause = filter (fun literal -> not (should_remove_literal literal)) clause in
+      (* Applique la simplification à chaque clause *)
+      let simplified_clauses = map (fun clause -> if is_neg_literal_present clause then remove_literal_from_clause clause else clause) clauses in
+      (* Supprime les clauses qui contiennent l *)
+      let filtered_clauses = filter (fun clause -> not (is_literal_present clause)) simplified_clauses in
+      filtered_clauses
+   ;;
+   
+   
   
-    match clauses with
-    | [] -> []
-    | clause :: tl ->
-      let clause_simplifiee = simplifie_clause clause in
-      if clause_simplifiee <> [] then (* Si la clause courant n'est pas vide après simplification *)
-        clause_simplifiee :: simplifie l tl
-      else
-        simplifie l tl
-  ;;
 
 (* solveur_split : int list list -> int list -> int list option
    exemple d'utilisation de `simplifie' *)
@@ -94,7 +106,7 @@ let rec solveur_split clauses interpretation =
 (* ----------------------------------------------------------- *)
 
 
-exception Not_found
+
 
 
 (* pur : int list list -> int option
@@ -102,70 +114,82 @@ exception Not_found
       ce littéral ;
     - sinon, lève une exception 'Not_Found' *)
 
-(* Fonction auxillaire qui verifie si un litteral est dans une clause *)
+(* Fonction auxillaire qui verifie si un element l apparait dans une liste de liste *)
 let rec contains list l = 
   match list with 
   |[] -> false
-  |hd :: tl -> if List.mem l hd then true else contains tl l
+  |hd :: tl -> if mem l hd then true else contains tl l
 ;;
-
-
 
 let rec pur clauses =
-  (* à compléter *)
   match clauses with 
-  |[] -> raise Not_found (* Si il n'y a aucune clauses *)
+  (* Aucune clause, on lève une exception Not_Found *)
+  |[] -> raise Not_Found
   |clause :: tl ->
     match clause with 
-    |[] -> pur tl (* Si clause vide, on passe à la suivante *)
+    |[] -> pur tl (* Si la clause est vide, on passe à la suivante *)
     |litteral :: next -> 
-      if not(contains clauses (-litteral)) then litteral (* Si le négatif du littéral courant n'apparait pas on le renvoie *)
-      else pur (next :: tl) 
+      (* Vérifie si la négation du littéral courant n'apparaît pas dans les clauses restantes (tl) *)
+      let is_negation_not_present = not (contains tl (-litteral)) in
+      (* Vérifie si la négation du littéral courant n'apparaît pas dans la clause courante *)
+      let is_negation_not_in_clause = not (List.mem (-litteral) clause) in
+      (* On renvoie le littéral pur trouvé *)
+      if is_negation_not_present && is_negation_not_in_clause then litteral  
+      (* Sinon on continue la recherche dans les clauses restantes *)
+      else pur (next :: tl)
 ;;
+
+
 
 (* unitaire : int list list -> int option
     - si `clauses' contient au moins une clause unitaire, retourne
       le littéral de cette clause unitaire ;
     - sinon, lève une exception `Not_found' *)
 
-
-
-let unitaire clauses =
-  (* à compléter *)
-  let unit_clauses = List.filter (fun l -> List.length l = 1) clauses in 
-  match unit_clauses with 
-  |[] -> raise Not_found (* Aucune clause unitaire *)
-  |unit_clause :: tl -> List.hd unit_clause (* On renvoie le litéral associé à la première clause unitiaire trouvée *)
+let rec unitaire clauses = 
+  match clauses with 
+  |[] -> raise Not_Found (* Aucune clause, on lève une exception Not_Found *)
+  |clause :: tl 
+    -> match clause with 
+    |[litt] -> litt (* Une clause unitaire contenant un seul littéral, on renvoie ce littéral *)
+    |_ -> unitaire tl (* La clause n'est pas unitaire, on continue la recherche dans les clauses restantes *)
 ;;
 
-(* solveur_dpll_rec : int list list -> int list -> int list option *)
-(* let rec solveur_dpll_rec clauses interpretation =
-  None *)
+(* solveur_dpll_rec : int list list -> int list -> int list option 
+  Retourne :
+   - Some interpretation : Si la formule est satisfiable et l'interprétation est la solution.
+   - None : Si la formule est insatisfiable. *)
 
-let solveur_dpll_rec clauses interpretation = 
-  let rec solveur_dpll cls interpretation = 
-    if cls = [] then Some interpretation (* Si clauses est vide *)
-    else if List.mem [] cls then None (* Si l'une des clauses est vide alors,  il n'y a aucune interprétation *)
-    else 
-      try (* On cherche de clauses unitaires *)
-        let unit_litteral = unitaire cls in
-        let simplified_clauses = simplifie unit_litteral cls in 
-        solveur_dpll simplified_clauses (unit_litteral :: interpretation)
-      with
-        | Not_found -> 
-          try (*Sinon, nous cherchons un littéral pur *)
-            let pur_litteral = pur cls in
-            let simplified_clauses = simplifie pur_litteral cls in
-            solveur_dpll simplified_clauses (pur_litteral :: interpretation)
-          with 
-            |Not_found ->  (* Sinon nous cherchons un littéral par lequel la clause peut être satisfiable *)
-            let l = hd (hd cls) in
-            let branche = solveur_dpll (simplifie l cls) (l::interpretation) in
+  let rec solveur_dpll_rec clauses interpretation =
+    match clauses with
+    | [] -> Some interpretation  (* Toutes les clauses sont satisfaites, renvoyer l'interprétation *)
+    | clause :: tl ->
+      if List.mem [] clauses then
+        None  (* Une clause est vide, la formule est insatisfiable *)
+      else
+        try
+          let unit_literal = unitaire clauses in
+          let simplified_clauses = simplifie unit_literal clauses in
+          let new_interpretation = unit_literal :: interpretation in
+          solveur_dpll_rec simplified_clauses new_interpretation
+        with
+        | Not_found ->
+          try
+            let pure_literal = pur clauses in
+            let simplified_clauses = simplifie pure_literal clauses in
+            let new_interpretation = pure_literal :: interpretation in
+            solveur_dpll_rec simplified_clauses new_interpretation
+          with
+          | Not_found ->
+            let branche = solveur_split clauses interpretation in
             match branche with
-            | None -> solveur_dpll (simplifie (-l) cls) ((-l)::interpretation)
-            | _    -> branche
-    in
-    solveur_dpll clauses interpretation
+            | None -> None  (* Aucune branche n'a abouti, la formule est insatisfiable *)
+            | Some new_interpretation ->
+              let l = hd new_interpretation in
+              let simplified_clauses = simplifie l clauses in
+              solveur_dpll_rec simplified_clauses (l :: interpretation)
+  ;;
+  
   
 
 (* tests *)
