@@ -8,9 +8,9 @@ Date limite: 3 novembre 2023, 23h59
 
 Identité
 --------
-Nombre de binôme: **à remplir**
-Nom, prénom 1: **à remplir**
-Nom, prénom 2: **à remplir**
+Nombre de binôme: 2
+Nom, prénom 1: Guilloux, Aurélien
+Nom, prénom 2: Batista-Cardoso, Tiago
 
 
 Questions sur votre code
@@ -19,7 +19,8 @@ Questions sur votre code
    et que ensuite `./dpll sudoku-4x4.cnf` donne la réponse attendue (voir
    fichier README) ?
 
-**à remplir**
+`make dpll` s'éxecute sans erreurs ou warnings et `./dpll sudoku-4x4.cnf` donne bien la
+réponse attendue.
 
 ---
 
@@ -31,6 +32,14 @@ Questions sur votre code
      fonctionne votre implémentation de `simplifie`.
 
 **à remplir**
+Non, nous n'avons pas utilsé la fonction `filter_map`. 
+Cependant nous avons utilisé une fonction auxilliaire `simplifie_clause` 
+qui va simplifié en fonction des cas la clause courante prise en argument.
+Afin de distinguer le cas où l apparait dans une clause auquel cas celle-ci est vraie et 
+le cas où la clause contient seulement -l nous renvoyons respectivement une liste vide et une 
+liste contenant 0.
+Ensuite dans `simplifie`, nous appelons `simplifie_clause` sur chaque clause et 
+contruisons nouvelle liste de clauses.
 
 ---
 
@@ -44,6 +53,9 @@ Questions sur votre code
    implémentation de la fonction `unitaire`.
 
 **à remplir**
+Pour l'implémentation de `unitaire`, nous n'avons pas utilisé de fonction auxilliaire.
+Nous parcourons chaque clause et regardons si elle contient un seul littéral, auquel cas on le renvoie. 
+Sinon, si aucune clause unitaire est trouvé ou bien que la liste de clauses est vide, nous renvoyons None .
 
 ---
 
@@ -53,6 +65,11 @@ Questions sur votre code
    utilisées dans votre implémentation de la fonction `pur`.
 
 **à remplir**
+Pour l'implémentation de pur, nous avons crée une liste `all_litterals` regroupant tous les littéraux présents dans la formule.
+La liste `all_litterals` à été créee grâce à la fonction fonction `List.flatten`.
+Ensuite prenons chaque littéral dans `all_litterals` et regardons si sa négation n'apparait pas dans liste `all_litterals`.
+Si sa négation n'apparait pas on on renvoie le littéral courant ; pour implémenter ce cas nous avons utiliser `List.mem`.
+Sinon nous parcourons le reste des littéraux.
 
 ---
 
@@ -61,12 +78,23 @@ Questions sur votre code
    différent, et expliquez les différences entre ces deux fonctions.
 
 **à remplir**
+La différence entre `solveur_split` et `solveur_dpll_rec` est que : `solveur_dpll_rec` est capable de rechercher des littéraux pur 
+et des clauses unitaires afin  simplifier la formule de façon plus efficace. Ce qui peut donner des résultats différents entre les deux fonctions.
+Les différences entre ces deux fonctions sont que : 
+- `solveur_dpll_rec` a plus de méthodes de simplification due à la recherche de clause unitaire et de littéral pur. 
+   Ayant plus de méthodes, `solveur_dpll_rec` simplifie plus efficacement la formule.
+- `solveur_split` prend le premier littéral qu'elle croise dans la liste de clause, le met à vrai et simplifie la formule par celui-ci.
+
+L'exemple 7.2 donné dans le fichier `dpll.ml` donne un résultat différent selon `solveur_dpll_rec` et `solveur_split`.
+-`solveur_dpll_rec` : -2 -3
+-`solveur_split` : 1 -2
 
 ---
 
 5. Avez-vous d'autres remarques sur votre rendu ? (question optionnelle)
 
 **à remplir**
+Nous n'avons pas de remarques.
 
 ---
 

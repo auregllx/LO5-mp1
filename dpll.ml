@@ -47,20 +47,21 @@ let coloriage = [
 
 (* ----------------------------------------------------------- *)
 
-exception Not_Found
 
-(*
-   simplifie : int -> int list list -> int list list option
-   Simplifie les clauses en éliminant les littéraux inutiles.
+
+
+
+(* Fonction auxilliaire 
+  simplifie_clause : int -> int list -> int list 
 *)
-
-
 let rec simplifie_clause l clause = 
   (* Si l apparait dans la clause alors on renvoie [] *)
   if List.mem l clause then [] 
   else 
     match clause with 
+    (* Si la clause courante est vide, nous renvoyons une liste vide *)
     |[] -> [] 
+    (* Si la clause courante est composée uniquement de -l alors on renvoie [0] pour distinguer ce cas-ci du cas précédent *)
     |[litt] when litt = -l -> [0]
     (* Si -l apparait alors on le supprime de clause *)
     |hd :: tl when hd = -l -> simplifie_clause l tl 
@@ -68,6 +69,10 @@ let rec simplifie_clause l clause =
     |hd :: tl -> hd :: (simplifie_clause l tl)
 ;;
 
+(*
+   simplifie : int -> int list list -> int list list option
+   Simplifie les clauses en éliminant les littéraux inutiles.
+*)
 let rec simplifie l clauses = 
   match clauses with 
   |[] -> [] 
@@ -75,6 +80,7 @@ let rec simplifie l clauses =
     match simplifie_clause l hd with 
     (* Si clause est vide car l était dedans nous ne l'ajoutons pas à la nouvelle liste de clauses *)
     |[] -> simplifie l tl
+    (* Si la clause contenait juste -l alors on ajoute [] à la nouvelle liste de clauses *)
     |[0] -> [] :: simplifie l tl
     (* Sinon on l'ajoute à la nouvelle liste de clauses *)
     |clause -> clause :: (simplifie l tl)
@@ -103,7 +109,9 @@ let rec solveur_split clauses interpretation =
   | _    -> branche
 
 (* tests *)
-(* let () = print_modele (solveur_split systeme []) 
+(* let () = print_modele (solveur_split exemple_7_2 [])
+let () = print_modele (solveur_split exemple_3_12 [])
+let () = print_modele (solveur_split systeme [])
 let () = print_modele (solveur_split coloriage []) *)
 
 (* solveur dpll récursif *)
@@ -116,30 +124,27 @@ let () = print_modele (solveur_split coloriage []) *)
 (* pur : int list list -> int option
     - si `clauses' contient au moins un littéral pur, retourne
       ce littéral ;
-    - sinon, lève une exception 'Not_Found' *)
-
-let rec pur clauses =
-  (* Fonction auxillaire qui verifie si un element l apparait dans une liste de liste *)
-  let rec contains list l = 
-    match list with 
-    |[] -> false
-    |hd :: tl -> if mem l hd then true else contains tl l
+    - sinon, on renvoie `None` *)
+let rec pur clauses = 
+  (* On regroupe tous les littéraux présents dans la formule en une seule liste all_litterals *)
+  let all_litterals = List.flatten  clauses in 
+  (* Nous regardons si la négation du littéral courant est présente dans all_littérals *)
+  let is_pur litt = not (List.mem (-litt) all_litterals) in 
+  let rec find_pur litterals = 
+    match litterals with 
+    |[] -> None (* Aucun littéral pur trouvé *)
+    |litt :: next -> (* On parcours la liste de tous les littéraux *)
+      if is_pur litt then Some litt (* Si le littéral courant est pur on le renvoie *)
+      else find_pur next (* Sinon on continue de parcourir *)
   in
-  match clauses with
-  (* Aucune clause, on lève une exception Not_Found *)
-  |[] -> raise Not_Found
-  |clause :: tl ->
-    match clause with 
-    |[] -> pur tl (* Si la clause est vide, on passe à la suivante *)
-    |litteral :: next -> 
-      (* Vérifie si la négation du littéral courant n'apparaît pas dans les clauses restantes (tl) *)
-      let is_negation_not_present = not (contains tl (-litteral)) in
-      (* Vérifie si la négation du littéral courant n'apparaît pas dans la clause courante *)
-      let is_negation_not_in_clause = not (List.mem (-litteral) clause) in
-      (* On renvoie le littéral pur trouvé *)
-      if is_negation_not_present && is_negation_not_in_clause then litteral  
-      (* Sinon on continue la recherche dans les clauses restantes *)
-      else pur (next :: tl)
+  match clauses with 
+  |[] -> None (* Aucune clause, on renvoie None *)
+  |_ -> 
+    match find_pur all_litterals with 
+    (* Si on trouve un littéral pur on le renvoie *)
+    |Some litt -> Some litt
+    (* Sinon on renvoie None *)
+    |None -> None
 ;;
 
 
@@ -147,14 +152,14 @@ let rec pur clauses =
 (* unitaire : int list list -> int option
     - si `clauses' contient au moins une clause unitaire, retourne
       le littéral de cette clause unitaire ;
-    - sinon, lève une exception `Not_found' *)
+    - sinon, on renvoie `None` *)
 
 let rec unitaire clauses = 
   match clauses with 
-  |[] -> raise Not_Found (* Aucune clause, on lève une exception Not_Found *)
+  |[] -> None (* Aucune clause, on renvoie None *)
   |clause :: tl 
     -> match clause with 
-    |[litt] -> litt (* Une clause unitaire contenant un seul littéral, on renvoie ce littéral *)
+    |[litt] -> Some litt (* Une clause unitaire contenant un seul littéral, on renvoie ce littéral *)
     |_ -> unitaire tl (* La clause n'est pas unitaire, on continue la recherche dans les clauses restantes *)
 ;;
 
@@ -171,44 +176,37 @@ let rec solveur_dpll_rec clauses interpretation =
     if List.mem [] clauses then
       None  (* Une clause est vide, la formule est insatisfiable *)
     else
-      try
-        let unit_literal = unitaire clauses in
-        if 
-          List.mem [-unit_literal] clauses then None 
-        else 
-          let simplified_clauses = simplifie unit_literal clauses in
-          let new_interpretation = unit_literal :: interpretation in
-          solveur_dpll_rec simplified_clauses new_interpretation
-      with
-      | Not_found ->
-        try
-          let pure_literal = pur clauses in
-          if 
-            List.mem [-pure_literal] clauses then None
-          else 
-            let simplified_clauses = simplifie pure_literal clauses in
-            let new_interpretation = pure_literal :: interpretation in
-            solveur_dpll_rec simplified_clauses new_interpretation
-        with
-        |Not_found ->
+      match unitaire clauses with 
+      |Some unit_litt -> 
+        (let simplified_clauses = simplifie unit_litt clauses in
+        let new_interpretation = unit_litt :: interpretation in
+        solveur_dpll_rec simplified_clauses new_interpretation)
+      |None -> 
+        match pur clauses with 
+        |Some pur_litt -> 
+          (let simplified_clauses = simplifie pur_litt clauses in
+          let new_interpretation = pur_litt :: interpretation in
+          solveur_dpll_rec simplified_clauses new_interpretation)
+        |None -> 
           let branche = solveur_split clauses interpretation in
           match branche with
           | None -> None  (* Aucune branche n'a abouti, la formule est insatisfiable *)
           | Some new_interpretation ->
-            let l = hd new_interpretation in
-            if 
-              List.mem [-l] clauses then None
-            else 
-              let simplified_clauses = simplifie l clauses in
-              solveur_dpll_rec simplified_clauses (l :: interpretation)
+            (let l = hd new_interpretation in
+            let simplified_clauses = simplifie l clauses in
+            let new_interpretation = l :: interpretation in 
+            solveur_dpll_rec simplified_clauses new_interpretation)
 ;;
+  
 
 
 (* tests *)
 (* ----------------------------------------------------------- *)
-(* let () = print_modele (solveur_dpll_rec systeme []) *)
-(* let () = print_modele (solveur_dpll_rec coloriage []) *)
+let () = print_modele (solveur_dpll_rec exemple_7_2 [])
+let () = print_modele (solveur_dpll_rec exemple_3_12 [])
+let () = print_modele (solveur_dpll_rec systeme []) 
+let () = print_modele (solveur_dpll_rec coloriage [])
 
-let () =
+(* let () =
   let clauses = Dimacs.parse Sys.argv.(1) in
-  print_modele (solveur_dpll_rec clauses [])
+  print_modele (solveur_dpll_rec clauses []) *)
